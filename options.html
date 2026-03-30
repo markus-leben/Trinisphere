@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="color-scheme" content="dark light">
+  </head>
+
+<body>
+  <form>
+    <p><b>Pricing Source:</b></p>
+    <input type="radio" name="pricing_source" value="tcgplayer">
+    <span>TCGPlayer</span>
+    <!-- <input type="radio" name="value-comparison" value="cardmarket">
+    <span>CardMarket</span> -->
+    <p><b>Cardsphere Value Comparison:</b></p>
+    <input type="radio" name="cardsphere_value" value="raw">
+    <span>Raw Price</span>
+    <input type="radio" name="cardsphere_value" value="send_fees">
+    <span>After Send Fees</span>
+    <input type="radio" name="cardsphere_value" value="send_and_cashout_fees">
+    <span>After Send and Cashout Fees</span>
+    <p><b>Other Store Value Comparison:</b></p>
+    <input type="radio" name="non_cardsphere_value" value="raw">
+    <span>Raw Price</span>
+    <input type="radio" name="non_cardsphere_value" value="after_fees">
+    <span>Price After Fees</span>
+    <p><button type="submit">Save</button></p>
+  </form>
+  <div id="output">asdf</div>
+  <!-- <p>storage.managed colour: <b id="managed-colour">no value found</b></p>
+  <form>
+      <label for="colour">Favourite colour</label>
+      <input type="text" id="colour">
+      <button type="submit">Save</button>
+  </form> -->
+  <script src="options.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,351 @@
+//TODO:
+//Figure out save states and only refresh after a certain amount of time
+//Figure out saving and displaying settings
+//Figure out tcgplayer shipping price, ranked shipping price, and seller shipping price
+//Deprecate and remove mvb =(
+//Figure out the edge case for 7ed and 8ed
+
+function olderThan (timestamp, milliseconds) {
+  return new Date() - (timestamp ? timestamp : 0) > milliseconds
+}
+
+var oneHourInMs = 60*60*1000
+
+
+var count = 1
+function updateAllCards() {
+  // gettingCards.then((cards) => {
+    // MVB
+    // processCardsRepeatedly({
+    //   pause: 5000,
+    //   message: 'MVB Loop Complete',
+    //   delayMs: 750,
+    //   filter: card => (card.ids.mtgjson === undefined || card.ids.scryfall === undefined) && olderThan(card.last_updated.mvb, oneHourInMs)
+    //   ,
+    //   apiCall: (card, csid) => multiverseApiCall(csid),
+    //   updateBuilder: data => ({
+    //     ids: {
+    //       mtgjson: data.mtgjson_id,
+    //       scryfall: data.scryfall_id
+    //     },
+    //     last_updated: {
+    //       mvb: new Date()
+    //     }
+    //   }),
+    //   onSuccess: (card) => console.log(`${card.name} ${card.set} loaded Multiverse Bridge successfully`),
+    //   onError: (err, card) => console.log(`${card.name} ${card.set} failed Multiverse Bridge. Error ${err}`)
+    // })
+
+
+    // Scryfall with ID
+    processCardsRepeatedly({
+      pause: 5000,
+      message: 'Scryfall with ID Loop Complete',
+      delayMs: 500,
+      filter: card => card.ids.scryfall != null && olderThan(card.last_updated.scryfall, oneHourInMs), // this is single not equal and should therefore catch undefined
+      apiCall: card => scryfallCardIdApiCall(card.ids.scryfall),
+      updateBuilder: data => ({
+        ids: {
+          cardmarket: data.cardmarket_id,
+          tcgplayer: data.tcgplayer_id
+        },
+        last_updated: {
+          scryfall: new Date()
+        }
+      }),
+      onSuccess: (card) => console.log(`${card.name} ${card.set} loaded Scryfall by ID successfully`),
+      onError: (err, card) => console.log(`${card.name} ${card.set} failed Scryfall by ID. Error ${err}`)
+    })
+
+    // Scryfall with no ID by search terms
+    processCardsRepeatedly({
+      pause: 5000,
+      message: 'Scryfall by search terms Loop Complete',
+      delayMs: 500,
+      filter: card => card.ids.scryfall == null && olderThan(card.last_updated.scryfall, oneHourInMs) && olderThan(card.last_updated.mvb, oneHourInMs), // if this was recently mvb updated, that means it definitely has no id
+      apiCall: card => scryfallCardSearchApiCall(card.name, card.setcode, card.traits, card.foil),
+      updateBuilder: data => ({
+        ids: {
+          cardmarket: data.cardmarket_id,
+          tcgplayer: data.tcgplayer_id,
+          scryfall: data.id // hopefully this means that if a search succeds it sticks around, but it also means a bad search ends up misbelieving for as long as the save persists
+        },
+        last_updated: {
+          scryfall: new Date()
+        }
+      }),
+      onSuccess: (card) => console.log(`${card.name} ${card.set} loaded Scryfall by search terms successfully`),
+      onError: (err, card) => console.log(`${card.name} ${card.set} failed Scryfall by search terms. Error ${err}`)
+    })
+
+    // TCGPlayer
+    processCardsRepeatedly({
+      pause: 5000,
+      message: 'TCGPlayer Loop Complete',
+      delayMs: 300,
+      filter: card => card.ids.tcgplayer != null && olderThan(card.last_updated.tcgplayer, oneHourInMs),
+      apiCall: card => tcgApiCall(card.ids.tcgplayer, card.foil),
+      updateBuilder: data => ({
+        prices: {
+          tcgplayer: data.results[0].price
+        },
+        last_updated: {
+          tcgplayer: new Date()
+        }
+      }),
+      onSuccess: (card) => console.log(`${card.name} ${card.set} loaded TCGPlayer successfully`),
+      onError: (err, card) => console.log(`${card.name} ${card.set} failed TCGPlayer. Error ${err}`)
+    })
+
+}
+
+
+
+function multiverseApiCall(cardsphereid) {
+  var path = `https://www.multiversebridge.com/api/v1/cards/cs/${cardsphereid}`
+  return fetch(path)
+  .then(response => {
+    if (!response.ok) {
+        throw new Error(`HTTP error in Multiverse Bridge! status: ${response.status} path: ${path}`);
+    }
+    return response.json();
+  })
+  .then(data => {
+    return data
+  })
+}
+
+
+// Can/should the url fetch be deprecated?
+function scryfallCardIdApiCall(scryfallid) {
+  return fetch(`https://api.scryfall.com/cards/${scryfallid}`)
+  .then(response => {
+    if (!response.ok) {
+        throw new Error(`HTTP error in Scryfall by ID! status: ${response.status} path ${path}`);
+    }
+    return response.json();
+  })
+  .then(data => {
+    return data
+  })
+}
+
+
+function scryfallCardSearchApiCall(name, setcode, traits, foil) {
+  // TODO: Also consider edge cases related to etched nonsense, may need to consider in cardspheresend whether to overwrite foil with an etched string in the case of being etched
+  const traitselector = Object.entries(traits).reduce((accumulator, [key, value]) => {
+    accumulator += typeof(value) === 'boolean' ? `${value ? ' ' : ' -'}is:${key}` : ` ${key}:${value}`
+    return accumulator
+  }, '');
+
+  const setString = Array.isArray(setcode) ? `(set:${setcode.join(' or set:')})` : setcode.length > 0 ? `set:${setcode}` : '';
+  const foilString = foil ? 'is:foil' : 'is:nonfoil'
+
+  const performFetch = (usePrecise) => {
+    const searchName = usePrecise ? `/${name}\$/` : name;
+    const path = encodeURI(`https://api.scryfall.com/cards/search?q=name:${searchName} ${foilString} ${setString}${traitselector} -is:digital &unique=prints`);
+
+    return fetch(path)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error in Scryfall by search terms! status: ${response.status} path: ${path}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        if (data.total_cards === 1) {
+          return data.data[0];
+        } else {
+          throw new Error(`${name} - ${setcode} returned ${data.total_cards} results from path ${path}`);
+        }
+      });
+  };
+
+  return performFetch(true).catch(() => performFetch(false));
+}
+
+
+function tcgApiCall(tcgpid, isFoil) {
+  var path = `https://mp-search-api.tcgplayer.com/v1/product/${tcgpid}/listings?mpfev=4528`
+  return fetch(path,{
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      "aggregations": [
+        "listingType"
+      ],
+      "context": {
+        "cart": {},
+        "shippingCountry": "US"
+      },
+      "filters": {
+        "exclude": {
+          "channelExclusion": 0
+        },
+        "range": {
+          "quantity": {
+            "gte": 1
+          }
+        },
+        "term": {
+          "channelId": 0,
+          "language": [
+            "English"
+          ],
+          "condition": [
+            "Near Mint"
+          ],
+          "printing": [
+            isFoil ? 'Foil' : 'Normal'
+          ],
+          "sellerStatus": "Live"
+        }
+      },
+      "from": 0,
+      "size": 10,
+      "sort": {
+        "field": "price+shipping",
+        "order": "asc"
+      }
+    })
+  })
+  .then(response => {
+    if (!response.ok) {
+        throw new Error(`HTTP error in TCG API Call! status: ${response.status}, path${path}`);
+    }
+    return response.json();
+  })
+  .then(data => {
+    return data.results[0];
+  })
+}
+
+
+function processCardsRepeatedly({
+  pause = 5000,
+  message = "test",
+  delayMs = 500,
+  filter,
+  apiCall,
+  updateBuilder,
+  onSuccess,
+  onError
+}) {
+  processCards({
+    delayMs: delayMs,
+    filter: filter,
+    apiCall: apiCall,
+    updateBuilder: updateBuilder,
+    onSuccess: onSuccess,
+    onError: onError
+  }).then(() => {
+    return delay(pause).then(() => {
+      console.log(message)
+    })
+  }).then(() => {
+    processCardsRepeatedly({
+      pause: pause,
+      message: message,
+      delayMs: delayMs,
+      filter: filter,
+      apiCall: apiCall,
+      updateBuilder: updateBuilder,
+      onSuccess: onSuccess,
+      onError: onError
+    })
+  })
+}
+
+
+function processCards({
+    delayMs = 500,
+    filter,
+    apiCall,
+    updateBuilder,
+    onSuccess,
+    onError
+  }) {
+    var gettingCards = getPreference('cards', {})
+    return gettingCards.then((cards) => {
+      let timeout = 0;
+      var promises = []
+
+      for (let [csid, card] of Object.entries(cards)) {
+        if (!filter(card, csid)) continue;
+
+        promises.push(
+          delay(timeout)
+          .then(() => apiCall(card, csid))
+          .then(data => cardUpdater(
+            card,
+            csid,
+            updateBuilder(data, card, csid)
+          ))
+          .then(() => {
+            onSuccess(card, csid)
+          })
+          .catch(err => onError(err, card, csid))
+        )
+
+        timeout += delayMs;
+      }
+      return Promise.all(promises).then(() => {
+        // console.log('All promises complete')
+      })
+    })
+  }
+
+
+
+function cardUpdater(originalCard, csid, changedValues) {
+  return getPreference('cards')
+  .then((updatedCards) => {
+    updatedCards[csid] = deepMerge(
+      structuredClone(updatedCards[csid]),
+      changedValues
+    );
+    if (JSON.stringify(updatedCards[csid]) !== JSON.stringify(originalCard)) {
+      savePreference('cards', updatedCards);
+      return true;
+    }
+  });
+}
+
+updateAllCards()
+
+
+
+browser.runtime.onMessage.addListener((request, sender) => {
+  if (request.action === "reloadTab") {
+    // Use sender.tab.id to reload the correct tab
+    browser.tabs.reload(sender.tab.id, { bypassCache: true }); // Use bypassCache for a force reload
+  }
+});
+
+
+// // Listen for messages from content scripts or other parts of the extension.
+// browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+//   console.log("Message received in background script:", message);
+//   if (message.type === "fetch") {
+//     fetch(message.url
+
+//     ).then(response => console.log(response))
+//   }
+//   else {
+//     sendResponse({ response: "Hello from background script!" });
+//   }
+
+
+
+//   // Asynchronous response example
+//   if (message.type === "ASYNC_TASK") {
+//     return new Promise(resolve => {
+//       setTimeout(() => {
+//         resolve({ response: "Async task completed!" });
+//       }, 1000);
+//     });
+//   }
+// });
