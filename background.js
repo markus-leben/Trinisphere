@@ -4,6 +4,8 @@
 //Figure out tcgplayer shipping price, ranked shipping price, and seller shipping price
 //Deprecate and remove mvb =(
 //Figure out the edge case for 7ed and 8ed
+//Figure out the edge case for cards with no pricing source stock for a given condition/language/foiling/etc
+//Consider whether failing to make an API call should count as 'updating' that card
 
 function olderThan (timestamp, milliseconds) {
   return new Date() - (timestamp ? timestamp : 0) > milliseconds
@@ -14,35 +16,13 @@ var oneHourInMs = 60*60*1000
 
 var count = 1
 function updateAllCards() {
-  // gettingCards.then((cards) => {
-    // MVB
-    // processCardsRepeatedly({
-    //   pause: 5000,
-    //   message: 'MVB Loop Complete',
-    //   delayMs: 750,
-    //   filter: card => (card.ids.mtgjson === undefined || card.ids.scryfall === undefined) && olderThan(card.last_updated.mvb, oneHourInMs)
-    //   ,
-    //   apiCall: (card, csid) => multiverseApiCall(csid),
-    //   updateBuilder: data => ({
-    //     ids: {
-    //       mtgjson: data.mtgjson_id,
-    //       scryfall: data.scryfall_id
-    //     },
-    //     last_updated: {
-    //       mvb: new Date()
-    //     }
-    //   }),
-    //   onSuccess: (card) => console.log(`${card.name} ${card.set} loaded Multiverse Bridge successfully`),
-    //   onError: (err, card) => console.log(`${card.name} ${card.set} failed Multiverse Bridge. Error ${err}`)
-    // })
-
 
     // Scryfall with ID
     processCardsRepeatedly({
       pause: 5000,
       message: 'Scryfall with ID Loop Complete',
-      delayMs: 500,
-      filter: card => card.ids.scryfall != null && olderThan(card.last_updated.scryfall, oneHourInMs), // this is single not equal and should therefore catch undefined
+      delayMs: 550,
+      filter: card => card.ids.scryfall != null && olderThan(card.last_updated.scryfall, 8*oneHourInMs), // this is single not equal and should therefore catch undefined
       apiCall: card => scryfallCardIdApiCall(card.ids.scryfall),
       updateBuilder: data => ({
         ids: {
@@ -61,8 +41,8 @@ function updateAllCards() {
     processCardsRepeatedly({
       pause: 5000,
       message: 'Scryfall by search terms Loop Complete',
-      delayMs: 500,
-      filter: card => card.ids.scryfall == null && olderThan(card.last_updated.scryfall, oneHourInMs) && olderThan(card.last_updated.mvb, oneHourInMs), // if this was recently mvb updated, that means it definitely has no id
+      delayMs: 550,
+      filter: card => card.ids.scryfall == null && olderThan(card.last_updated.scryfall, 8*oneHourInMs),
       apiCall: card => scryfallCardSearchApiCall(card.name, card.setcode, card.traits, card.foil),
       updateBuilder: data => ({
         ids: {
@@ -80,7 +60,7 @@ function updateAllCards() {
 
     // TCGPlayer
     processCardsRepeatedly({
-      pause: 5000,
+      pause: 25000,
       message: 'TCGPlayer Loop Complete',
       delayMs: 300,
       filter: card => card.ids.tcgplayer != null && olderThan(card.last_updated.tcgplayer, oneHourInMs),
@@ -270,31 +250,29 @@ function processCards({
   }) {
     var gettingCards = getPreference('cards', {})
     return gettingCards.then((cards) => {
-      let timeout = 0;
-      var promises = []
+      let chain = Promise.resolve();
 
       for (let [csid, card] of Object.entries(cards)) {
         if (!filter(card, csid)) continue;
 
-        promises.push(
-          delay(timeout)
-          .then(() => apiCall(card, csid))
-          .then(data => cardUpdater(
-            card,
-            csid,
-            updateBuilder(data, card, csid)
-          ))
-          .then(() => {
-            onSuccess(card, csid)
-          })
-          .catch(err => onError(err, card, csid))
-        )
-
-        timeout += delayMs;
+        chain =  chain
+        .then(() => delay(delayMs))
+        .then(() => apiCall(card, csid))
+        .then(data => cardUpdater(
+          card,
+          csid,
+          updateBuilder(data, card, csid)
+        ))
+        .then(() => {
+          onSuccess(card, csid);
+        })
+        .catch(err => {
+          onError(err, card, csid);
+          // IMPORTANT: swallow error so chain continues
+          return Promise.resolve();
+        });
       }
-      return Promise.all(promises).then(() => {
-        // console.log('All promises complete')
-      })
+      return chain
     })
   }
 

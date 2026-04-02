@@ -27,7 +27,7 @@ function updateCardsAfterSendsLoaded() {
 
     //   }
     // }
-    delay(10*1000).then(() => {
+    delay(1*1000).then(() => {
       updateCardsAfterSendsLoaded()
     })
 
@@ -36,13 +36,15 @@ function updateCardsAfterSendsLoaded() {
 }
 
 function refreshAfterSendsLoaded() {
-  delay(300*1000).then(() => {
+  delay(600*1000).then(() => {
+
     refreshPage()
   })
 }
 
 
 function updateCardsAfterPackageReviewLoaded(mutationsList, observer) {
+  // TODO: Look further into mutations, not sure all forms of package review opening are covered, some pop-in appears to occur
   // Check if this is the right mutation
   var correctMutation = false
   for (let mutation of mutationsList){
@@ -56,6 +58,12 @@ function updateCardsAfterPackageReviewLoaded(mutationsList, observer) {
     return
   }
 
+  updatePackageCards()
+
+}
+
+function updatePackageCards() {
+  console.log('updating package cards')
   // Get cards and put price tags on them.
   var gettingCards = getPreference('cards', {})
   gettingCards.then((cards) => {
@@ -68,10 +76,12 @@ function updateCardsAfterPackageReviewLoaded(mutationsList, observer) {
 
     }
     savePreference('cards', cards)
+
+    delay(1*1000).then(() => {
+      updatePackageCards()
+    })
   })
-
 }
-
 
 function updateCardsWithLine(cards, line) {
   var cardTraits = {}
@@ -205,6 +215,22 @@ function parseCardsphereSetCode(cssetid){
       }
     }
   }
+  else   if (cssetid === '30a'){
+    // 30th anniversary
+    return {
+      setcode: 'p30m',
+      traits: {
+      }
+    }
+  }
+  else   if (cssetid === 'ice2'){
+    // Ice age set symbol - presumedly an alternate one for web visibility
+    return {
+      setcode: 'ice',
+      traits: {
+      }
+    }
+  }
   else   if (cssetid === 'pme'){
     // special occasion promos are pme on cardsphere and hho on scryfall, pretty simple
     return {
@@ -236,6 +262,15 @@ function parseCardsphereSetCode(cssetid){
       setcode: '',
       traits: {
         is:'buyabox'
+      }
+    }
+  }
+  else if (cssetid === 'lpr'){
+    // Scryfall associates launch promos with their set, the only way to manage this is to just search by is:buyabox, which the set name should manage, but we can put is:buyabox here anyway
+    return {
+      setcode: '',
+      traits: {
+        is:'release'
       }
     }
   }
@@ -317,16 +352,15 @@ function refreshPage() {
 }
 
 
-var TAG_DIV_CLASS_LIST = ''
-var TAG_CLASS_LIST = ''
-
 // does not currently need to be sync
 updateCardsAfterSendsLoaded()
 
-const refreshObserver = new MutationObserver(refreshAfterSendsLoaded);
+refreshAfterSendsLoaded()
 
-const packageElement = document.querySelector('[class*="__packageContainer"')
-refreshObserver.observe(packageElement, { childList: true});
+// const refreshObserver = new MutationObserver(refreshAfterSendsLoaded);
+
+// const packageElement = document.querySelector('[class*="__packageContainer"')
+// refreshObserver.observe(packageElement, { childList: true});
 
 
 const packageObserver = new MutationObserver(updateCardsAfterPackageReviewLoaded)
