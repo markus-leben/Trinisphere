@@ -297,10 +297,13 @@ function parseCardsphereSetName(setName){
   //This is a dict of keywords for dash separated terms and the trais that they have for scryfall search
   //TODO: Double check whether JS objects when instantiated like this retain their ordering
   var terms = {
-    ' - Showcase':{showcase:true},
+    ' - Showcase':{boosterfun:true}, //Ironically some CS cards called showcase are actually stuff like portraits
     ' - Scene':{scene:true},
     ' - Borderless':{borderless:true},
-    ' - Extended Art':{frame:'extendedart'},
+    ' - Extended Art$':{frame:'extendedart'},
+    ' - Extended Art - Surge Foil':{frame:'extendedart', surgefoil:true},
+    ' Retro Frame$':{frame:'1997'},
+    // ' Retro Frame Etched Foil$':{frame:'1997'}, //TODO: figure out etched foil
     ' - First Place Foil':{firstplacefil:true},
     ' Through the Ages':{sourcematerial:true},
     'Game Day':{gameday:true},

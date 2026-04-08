@@ -18,31 +18,31 @@ var count = 1
 function updateAllCards() {
 
     // Scryfall with ID
-    processCardsRepeatedly({
-      pause: 5000,
-      message: 'Scryfall with ID Loop Complete',
-      delayMs: 550,
-      filter: card => card.ids.scryfall != null && olderThan(card.last_updated.scryfall, 8*oneHourInMs), // this is single not equal and should therefore catch undefined
-      apiCall: card => scryfallCardIdApiCall(card.ids.scryfall),
-      updateBuilder: data => ({
-        ids: {
-          cardmarket: data.cardmarket_id,
-          tcgplayer: data.tcgplayer_id
-        },
-        last_updated: {
-          scryfall: new Date()
-        }
-      }),
-      onSuccess: (card) => console.log(`${card.name} ${card.set} loaded Scryfall by ID successfully`),
-      onError: (err, card) => console.log(`${card.name} ${card.set} failed Scryfall by ID. Error ${err}`)
-    })
+    // processCardsRepeatedly({
+    //   pause: 5000,
+    //   message: 'Scryfall with ID Loop Complete',
+    //   delayMs: 1000,
+    //   filter: card => card.ids.scryfall != null && olderThan(card.last_updated.scryfall, 8*oneHourInMs), // this is single not equal and should therefore catch undefined
+    //   apiCall: card => scryfallCardIdApiCall(card.ids.scryfall),
+    //   updateBuilder: data => ({
+    //     ids: {
+    //       cardmarket: data.cardmarket_id,
+    //       tcgplayer: data.tcgplayer_id
+    //     },
+    //     last_updated: {
+    //       scryfall: new Date()
+    //     }
+    //   }),
+    //   onSuccess: (card) => console.log(`${card.name} ${card.set} loaded Scryfall by ID successfully`),
+    //   onError: (err, card) => console.log(`${card.name} ${card.set} failed Scryfall by ID. Error ${err}`)
+    // })
 
     // Scryfall with no ID by search terms
     processCardsRepeatedly({
       pause: 5000,
       message: 'Scryfall by search terms Loop Complete',
       delayMs: 550,
-      filter: card => card.ids.scryfall == null && olderThan(card.last_updated.scryfall, 8*oneHourInMs),
+      filter: card => card.ids.scryfall == null && olderThan(card.last_updated.scryfall, 24*oneHourInMs),
       apiCall: card => scryfallCardSearchApiCall(card.name, card.setcode, card.traits, card.foil),
       updateBuilder: data => ({
         ids: {
@@ -60,7 +60,7 @@ function updateAllCards() {
 
     // TCGPlayer
     processCardsRepeatedly({
-      pause: 25000,
+      pause: 1000,
       message: 'TCGPlayer Loop Complete',
       delayMs: 300,
       filter: card => card.ids.tcgplayer != null && olderThan(card.last_updated.tcgplayer, oneHourInMs),
@@ -121,27 +121,23 @@ function scryfallCardSearchApiCall(name, setcode, traits, foil) {
   const setString = Array.isArray(setcode) ? `(set:${setcode.join(' or set:')})` : setcode.length > 0 ? `set:${setcode}` : '';
   const foilString = foil ? 'is:foil' : 'is:nonfoil'
 
-  const performFetch = (usePrecise) => {
-    const searchName = usePrecise ? `/${name}\$/` : name;
-    const path = encodeURI(`https://api.scryfall.com/cards/search?q=name:${searchName} ${foilString} ${setString}${traitselector} -is:digital &unique=prints`);
+  const path = encodeURI(`https://api.scryfall.com/cards/search?q=!"${name}" ${foilString} ${setString}${traitselector} -is:digital &unique=prints`);
 
-    return fetch(path)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error in Scryfall by search terms! status: ${response.status} path: ${path}`);
-        }
-        return response.json();
-      })
-      .then(data => {
-        if (data.total_cards === 1) {
-          return data.data[0];
-        } else {
-          throw new Error(`${name} - ${setcode} returned ${data.total_cards} results from path ${path}`);
-        }
-      });
-  };
+  return fetch(path)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error in Scryfall by search terms! status: ${response.status} path: ${path}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (data.total_cards === 1) {
+        return data.data[0];
+      } else {
+        throw new Error(`${name} - ${setcode} returned ${data.total_cards} results from path ${path}`);
+      }
+    });
 
-  return performFetch(true).catch(() => performFetch(false));
 }
 
 
@@ -303,27 +299,3 @@ browser.runtime.onMessage.addListener((request, sender) => {
   }
 });
 
-
-// // Listen for messages from content scripts or other parts of the extension.
-// browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-//   console.log("Message received in background script:", message);
-//   if (message.type === "fetch") {
-//     fetch(message.url
-
-//     ).then(response => console.log(response))
-//   }
-//   else {
-//     sendResponse({ response: "Hello from background script!" });
-//   }
-
-
-
-//   // Asynchronous response example
-//   if (message.type === "ASYNC_TASK") {
-//     return new Promise(resolve => {
-//       setTimeout(() => {
-//         resolve({ response: "Async task completed!" });
-//       }, 1000);
-//     });
-//   }
-// });
