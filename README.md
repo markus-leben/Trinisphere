@@ -17,7 +17,7 @@ Trinisphere exists as a browser extension to provide in-browser tools to improve
 3. Click "Load Temporary Add-on" and navigate to the folder where the repo is.
 4. Click on the file named manifest.json
   <img src="https://raw.githubusercontent.com/markus-leben/Trinisphere/refs/heads/main/github/images/navigate_to_manifest.png" alt="screenshot of navigating to manifest.json" width="750px">
-5. Trinisphere should now be fully loaded and running. Cards should gradually load in after you first navigate to your /sends page. Currently this takes a bit of time as I haven't got a lot of clever preload solutions set up yet, but
+5. Trinisphere should now be fully loaded and running. Cards should gradually load in after you first navigate to your /sends page. Currently this takes a bit of time as I haven't got a lot of clever preload solutions set up yet, but should improve steadily as I iterate.
 
 
 
