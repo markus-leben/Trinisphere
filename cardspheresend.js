@@ -1,4 +1,6 @@
-
+const tagContainerExample = document.querySelector('div[class*="tooltipContainer"]')
+const tagExample = document.querySelector('div[class*="Tag-module-scss"]')
+const tooltipExample = document.querySelector('div[class*="Tooltip-module-scss"][class$="__tooltip"]')
 
 function updateCardsAfterSendsLoaded() {
   var gettingCards = getPreference('cards', {})
@@ -136,10 +138,6 @@ function placePriceTag (cards, line, tagHolder){
     var tagHolder = document.createElement("span")
     line.appendChild(tagHolder)
   }
-  var tagContainerExample = document.querySelector('div[class*="tooltipContainer"]')
-  var tagExample = document.querySelector('div[class*="Tag-module-scss"]')
-  var tooltipExample = document.querySelector('div[class*="Tooltip-module-scss"][class$="__tooltip"]')
-
 
   var cardpeek = line.querySelector('a[href*="/cards/"')
   var cardsphereid = cardpeek.href.replace('https://www.cardsphere.com/cards/','')
@@ -147,27 +145,56 @@ function placePriceTag (cards, line, tagHolder){
   var thisCardspherePrice = parseFloat(line.querySelector('b').textContent.replace('$',''))
   var tcgPrice = thisCard.prices.tcgplayer || 0.0
 
-  // delete old copies of tags
-  tagHolder.querySelectorAll('.trinisphere-added').forEach(e => e.remove());
+  let existingTag = tagHolder.querySelector('.trinisphere-tag-container')
+  if (!existingTag) {
+    var tagContainer = document.createElement('div')
+    tagContainer.classList.add(tagContainerExample.classList[0])
+    tagContainer.classList.add('trinisphere-added')
+    tagContainer.classList.add('trinisphere-tag-container')
+    tagHolder.appendChild(tagContainer)
+    var valueTag = document.createElement("div")
+    var tooltip = document.createElement("div")
 
-  var tagContainer = document.createElement('div')
-  tagContainer.classList.add(tagContainerExample.classList[0])
-  tagContainer.classList.add('trinisphere-added')
-  tagHolder.appendChild(tagContainer)
-
-
-
-  var testTag = document.createElement("div")
-  var tooltip = document.createElement("div")
-
-
-  testTag.classList.add(tagExample.classList[0])
-  testTag.classList.add(tagExample.classList[1])
-  testTag.classList.add('trinisphere-added')
+    valueTag.classList.add(tagExample.classList[0])
+    valueTag.classList.add(tagExample.classList[1])
+    valueTag.classList.add('trinisphere-added')
+    valueTag.classList.add('trinisphere-value-tag')
 
 
-  tooltip.classList.add(tooltipExample.className)
-  tooltip.classList.add('trinisphere-added')
+    tooltip.classList.add(tooltipExample.className)
+    tooltip.classList.add('trinisphere-added')
+    tooltip.classList.add('trinisphere-tooltip')
+
+    tagContainer.appendChild(valueTag)
+    tagContainer.appendChild(tooltip)
+    // create once
+  } else {
+    var tagContainer = tagHolder.querySelector('.trinisphere-tag-container')
+    var valueTag = tagHolder.querySelector('.trinisphere-value-tag')
+    var tooltip = tagHolder.querySelector('.trinisphere-tooltip')
+  }
+
+  // // delete old copies of tags
+  // tagHolder.querySelectorAll('.trinisphere-added').forEach(e => e.remove());
+
+  // var tagContainer = document.createElement('div')
+  // tagContainer.classList.add(tagContainerExample.classList[0])
+  // tagContainer.classList.add('trinisphere-added')
+  // tagHolder.appendChild(tagContainer)
+
+
+
+  // var valueTag = document.createElement("div")
+  // var tooltip = document.createElement("div")
+
+
+  // valueTag.classList.add(tagExample.classList[0])
+  // valueTag.classList.add(tagExample.classList[1])
+  // valueTag.classList.add('trinisphere-added')
+
+
+  // tooltip.classList.add(tooltipExample.className)
+  // tooltip.classList.add('trinisphere-added')
 
   var color = 'rgb(255, 255, 255)'
   var backgroundColor = "rgb(255, 255, 128)"
@@ -193,13 +220,13 @@ function placePriceTag (cards, line, tagHolder){
 
   }
 
-  testTag.style.color = color
-  testTag.style.backgroundColor = backgroundColor
-  testTag.textContent = text
+  valueTag.style.color = color
+  valueTag.style.backgroundColor = backgroundColor
+  valueTag.textContent = text
 
   tooltip.textContent = mouseover
 
-  tagContainer.appendChild(testTag)
+  tagContainer.appendChild(valueTag)
   tagContainer.appendChild(tooltip)
 }
 
@@ -215,10 +242,18 @@ function parseCardsphereSetCode(cssetid){
       }
     }
   }
+  else   if (cssetid === 'lis'){
+    // The list on cardsphere is 'lis' according to set code
+    return {
+      setcode: 'plst',
+      traits: {
+      }
+    }
+  }
   else   if (cssetid === '30a'){
     // 30th anniversary
     return {
-      setcode: 'p30m',
+      setcode: ['p30m', 'p30a'],
       traits: {
       }
     }
@@ -235,6 +270,14 @@ function parseCardsphereSetCode(cssetid){
     // special occasion promos are pme on cardsphere and hho on scryfall, pretty simple
     return {
       setcode: 'hho',
+      traits: {
+      }
+    }
+  }
+  else   if (cssetid === 'pmei'){
+    // special occasion promos are pme on cardsphere and hho on scryfall, pretty simple
+    return {
+      setcode: 'sch',
       traits: {
       }
     }
@@ -297,6 +340,7 @@ function parseCardsphereSetName(setName){
   //This is a dict of keywords for dash separated terms and the trais that they have for scryfall search
   //TODO: Double check whether JS objects when instantiated like this retain their ordering
   var terms = {
+    ' - Alternate Art':{showcase:true},
     ' - Showcase':{boosterfun:true}, //Ironically some CS cards called showcase are actually stuff like portraits
     ' - Scene':{scene:true},
     ' - Borderless':{borderless:true},

@@ -18,7 +18,7 @@
   ],
   "content_scripts": [
     {
-      "matches": ["*://*.cardsphere.com/*"],
+      "matches": ["*://*.cardsphere.com/send*"],
       "js": ["utils.js", "cardspheresend.js"]
     }
   ],
